@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 顺便给你的画板加个全屏背景颜色，防止白屏 */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  background-color: #0f172a; /* Slate-900 */
+}
