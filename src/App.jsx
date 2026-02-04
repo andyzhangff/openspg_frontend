@@ -1,36 +1,119 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
-import './index.css'
+import { useCallback, useState } from 'react';
+import ReactFlow, { Background, Controls, MiniMap, useNodesState, useEdgesState, addEdge } from 'reactflow';
+import 'reactflow/dist/style.css';
+import CustomNode from './components/CustomNode';
+
+const nodeTypes = {
+  custom: CustomNode,
+};
+
+const initialNodes = [
+  { id: '1', type: 'custom', position: { x: 250, y: 100 }, data: { label: 'Concept' } },
+  { id: '2', type: 'custom', position: { x: 500, y: 200 }, data: { label: 'Entity' } },
+];
+
+const initialEdges = [
+  { id: 'e1-2', source: '1', target: '2', animated: true },
+];
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [inputText, setInputText] = useState('');
+
+  const onConnect = useCallback((params) => setEdges((eds) => addEdge(params, eds)), [setEdges]);
+
+  const handleDragStart = (e, nodeType) => {
+    e.dataTransfer.setData('application/reactflow', nodeType);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleGenerateSchema = () => {
+    console.log('生成 Schema:', inputText);
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="flex h-screen bg-gray-100">
+      <div className="w-[260px] bg-white border-r border-gray-300 flex flex-col">
+        <div className="p-4 border-b border-gray-300">
+          <h2 className="text-lg font-bold text-gray-800">Schema组件</h2>
+        </div>
+        <div className="flex-1 p-4 space-y-3">
+          <div
+            draggable="true"
+            onDragStart={(e) => handleDragStart(e, 'custom')}
+            className="w-full h-16 bg-blue-500 hover:bg-blue-600 rounded-lg flex items-center justify-center cursor-move transition-colors shadow-md"
+          >
+            <span className="text-white font-medium">Concept</span>
+          </div>
+          <div
+            draggable="true"
+            onDragStart={(e) => handleDragStart(e, 'custom')}
+            className="w-full h-16 bg-blue-500 hover:bg-blue-600 rounded-lg flex items-center justify-center cursor-move transition-colors shadow-md"
+          >
+            <span className="text-white font-medium">Entity</span>
+          </div>
+          <div
+            draggable="true"
+            onDragStart={(e) => handleDragStart(e, 'custom')}
+            className="w-full h-16 bg-blue-500 hover:bg-blue-600 rounded-lg flex items-center justify-center cursor-move transition-colors shadow-md"
+          >
+            <span className="text-white font-medium">Relation</span>
+          </div>
+          <div
+            draggable="true"
+            onDragStart={(e) => handleDragStart(e, 'custom')}
+            className="w-full h-16 bg-blue-500 hover:bg-blue-600 rounded-lg flex items-center justify-center cursor-move transition-colors shadow-md"
+          >
+            <span className="text-white font-medium">Event</span>
+          </div>
+        </div>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
+
+      <div className="flex-1 bg-gray-800 relative">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          nodeTypes={nodeTypes}
+          fitView
+        >
+          <Background color="#374151" gap={16} />
+          <Controls />
+          <MiniMap />
+        </ReactFlow>
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+
+      <div className="w-[320px] bg-white border-l border-gray-300 flex flex-col">
+        <div className="p-4 border-b border-gray-300">
+          <h2 className="text-lg font-bold text-gray-800">聊天框</h2>
+        </div>
+        <div className="flex-1 p-4 overflow-y-auto">
+          <div className="space-y-4">
+            <div className="bg-gray-100 rounded-lg p-3">
+              <p className="text-sm text-gray-700">欢迎使用 Schema 编辑器！</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-4 border-t border-gray-300">
+          <textarea
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="请输入 Schema 描述..."
+            className="w-full h-24 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            onClick={handleGenerateSchema}
+            className="w-full mt-3 h-10 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
+          >
+            生成 Schema
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-export default App
+export default App;
