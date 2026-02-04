@@ -33,7 +33,7 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-white">
       <div className="w-[260px] bg-white border-r border-gray-300 flex flex-col">
         <div className="p-4 border-b border-gray-300">
           <h2 className="text-lg font-bold text-gray-800">Schema组件</h2>
@@ -42,35 +42,35 @@ function App() {
           <div
             draggable="true"
             onDragStart={(e) => handleDragStart(e, 'custom')}
-            className="w-full h-16 bg-blue-500 hover:bg-blue-600 rounded-lg flex items-center justify-center cursor-move transition-colors shadow-md"
+            className="w-full h-16 bg-black hover:bg-gray-800 rounded-lg flex items-center justify-center cursor-move transition-colors shadow-md"
           >
             <span className="text-white font-medium">Concept</span>
           </div>
           <div
             draggable="true"
             onDragStart={(e) => handleDragStart(e, 'custom')}
-            className="w-full h-16 bg-blue-500 hover:bg-blue-600 rounded-lg flex items-center justify-center cursor-move transition-colors shadow-md"
+            className="w-full h-16 bg-black hover:bg-gray-800 rounded-lg flex items-center justify-center cursor-move transition-colors shadow-md"
           >
             <span className="text-white font-medium">Entity</span>
           </div>
           <div
             draggable="true"
             onDragStart={(e) => handleDragStart(e, 'custom')}
-            className="w-full h-16 bg-blue-500 hover:bg-blue-600 rounded-lg flex items-center justify-center cursor-move transition-colors shadow-md"
+            className="w-full h-16 bg-black hover:bg-gray-800 rounded-lg flex items-center justify-center cursor-move transition-colors shadow-md"
           >
             <span className="text-white font-medium">Relation</span>
           </div>
           <div
             draggable="true"
             onDragStart={(e) => handleDragStart(e, 'custom')}
-            className="w-full h-16 bg-blue-500 hover:bg-blue-600 rounded-lg flex items-center justify-center cursor-move transition-colors shadow-md"
+            className="w-full h-16 bg-black hover:bg-gray-800 rounded-lg flex items-center justify-center cursor-move transition-colors shadow-md"
           >
             <span className="text-white font-medium">Event</span>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 bg-gray-800 relative">
+      <div className="flex-1 bg-white relative">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -80,7 +80,7 @@ function App() {
           nodeTypes={nodeTypes}
           fitView
         >
-          <Background color="#374151" gap={16} />
+          <Background color="#e5e7eb" gap={16} />
           <Controls />
           <MiniMap />
         </ReactFlow>
@@ -102,11 +102,11 @@ function App() {
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder="请输入 Schema 描述..."
-            className="w-full h-24 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full h-24 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-black"
           />
           <button
             onClick={handleGenerateSchema}
-            className="w-full mt-3 h-10 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
+            className="w-full mt-3 h-10 bg-black hover:bg-gray-800 text-white font-medium rounded-lg transition-colors"
           >
             生成 Schema
           </button>
