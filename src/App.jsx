@@ -1,5 +1,5 @@
 import { useCallback, useState, useRef } from 'react';
-import ReactFlow, { Background, Controls, MiniMap, useNodesState, useEdgesState, addEdge, getBezierPath, MarkerType } from 'reactflow';
+import ReactFlow, { Background, Controls, MiniMap, useNodesState, useEdgesState, addEdge } from 'reactflow';
 import 'reactflow/dist/style.css';
 import CustomNode from './components/CustomNode';
 
@@ -20,6 +20,9 @@ function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [inputText, setInputText] = useState('');
+  const [messages, setMessages] = useState([
+    { id: 1, type: 'system', text: '欢迎使用 Schema 编辑器！' }
+  ]);
   const reactFlowWrapper = useRef(null);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
@@ -111,7 +114,16 @@ function App() {
   }, [editingNodeEdit, setNodes]);
 
   const handleGenerateSchema = () => {
-    console.log('生成 Schema:', inputText);
+    const trimmedText = inputText.trim();
+    if (trimmedText) {
+      const newMessage = {
+        id: Date.now(),
+        type: 'user',
+        text: trimmedText
+      };
+      setMessages((msgs) => [...msgs, newMessage]);
+      setInputText('');
+    }
   };
 
   return (
@@ -202,9 +214,9 @@ function App() {
               <input
                 type="text"
                 value={editingNodeEdit.data.label}
-                onChange={(e) =>
-                  setEditingNode({ ...editingNodeEdit, data: { ...editingNodeEdit.data, label: e.target.value } })
- }
+                onChange={(e) => {
+                  setEditingNode({ ...editingNodeEdit, data: { ...editingNodeEdit.data, label: e.target.value } });
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black mb-4"
                 autoFocus
               />
@@ -233,9 +245,32 @@ function App() {
         </div>
         <div className="flex-1 p-4 overflow-y-auto">
           <div className="space-y-4">
-            <div className="bg-gray-100 rounded-lg p-3">
-              <p className="text-sm text-gray-700">欢迎使用 Schema 编辑器！</p>
-            </div>
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`flex gap-3 ${msg.type === 'user' ? 'flex-row-reverse' : ''}`}
+              >
+                {msg.type === 'user' && (
+                  <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-xs">我</span>
+                  </div>
+                )}
+                <div
+                  className={`max-w-[80%] p-3 rounded-lg ${
+                    msg.type === 'user'
+                      ? 'bg-black text-white'
+                      : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  <p className="text-sm break-words">{msg.text}</p>
+                </div>
+                {msg.type === 'system' && (
+                  <div className="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-xs">AI</span>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
         <div className="p-4 border-t border-gray-300">
@@ -249,7 +284,7 @@ function App() {
             onClick={handleGenerateSchema}
             className="w-full mt-3 h-10 bg-black hover:bg-gray-800 text-white font-medium rounded-lg transition-colors"
           >
-            生成 Schema
+            发送
           </button>
         </div>
       </div>
