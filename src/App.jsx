@@ -6,7 +6,8 @@ import ReactFlow, {
   addEdge,
   ConnectionLineType,
   MarkerType,
-  useReactFlow
+  useReactFlow,
+  ReactFlowProvider
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import {
@@ -36,6 +37,7 @@ const nodeTypes = {
 
 const edgeTypes = {
   energy: EnergyEdge,
+  cyberEdge: EnergyEdge,
 };
 
 const initialNodes = [
@@ -57,38 +59,39 @@ const SidebarButton = ({ label, icon: Icon, onDragStart, type }) => (
   <div
     draggable
     onDragStart={(e) => onDragStart(e, type, label)}
-    className="group relative w-full h-28 mb-5 cursor-pointer"
+    className="group relative w-full min-h-[112px] cursor-pointer"
   >
     {/* Animated border glow */}
     <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/20 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm" />
-    
+
     {/* Main container with glass effect */}
-    <div className="absolute inset-0 glass-panel rounded-lg group-hover:border-cyan-400/60 transition-all duration-300 
-      shadow-[0_0_15px_rgba(0,240,255,0.1)] group-hover:shadow-[0_0_25px_rgba(0,240,255,0.3)] overflow-hidden">
-      
+    <div className="relative glass-panel rounded-lg group-hover:border-cyan-400/60 transition-all duration-300
+      shadow-[0_0_15px_rgba(0,240,255,0.1)] group-hover:shadow-[0_0_25px_rgba(0,240,255,0.3)] overflow-hidden
+      min-h-[112px]">
+
       {/* Corner accents */}
       <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-cyan-400/70 rounded-tl-lg" />
       <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-cyan-400/70 rounded-tr-lg" />
       <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-cyan-400/70 rounded-bl-lg" />
       <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-cyan-400/70 rounded-br-lg" />
-      
+
       {/* Scanline animation */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-400/10 to-transparent h-full w-full animate-[shine_2s_ease-in-out_infinite]" />
       </div>
-    </div>
 
-    {/* Content */}
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-      <div className="relative p-3 rounded-xl bg-slate-900/60 border border-cyan-500/30 
-        group-hover:border-cyan-400/60 group-hover:bg-cyan-950/40
-        group-hover:shadow-[0_0_20px_rgba(0,240,255,0.4)] transition-all duration-300
-        group-hover:scale-110">
-        <Icon className="w-7 h-7 text-cyan-300 group-hover:text-cyan-200 transition-colors" />
+      {/* Content */}
+      <div className="relative flex flex-col items-center justify-center gap-2 py-6">
+        <div className="relative p-3 rounded-xl bg-slate-900/60 border border-cyan-500/30
+          group-hover:border-cyan-400/60 group-hover:bg-cyan-950/40
+          group-hover:shadow-[0_0_20px_rgba(0,240,255,0.4)] transition-all duration-300
+          group-hover:scale-110">
+          <Icon className="w-7 h-7 text-cyan-300 group-hover:text-cyan-200 transition-colors" />
+        </div>
+        <span className="font-display text-white/90 text-sm tracking-[0.2em] uppercase group-hover:text-white transition-colors font-semibold">
+          {label}
+        </span>
       </div>
-      <span className="font-display text-white/90 text-sm tracking-[0.2em] uppercase group-hover:text-white transition-colors font-semibold">
-        {label}
-      </span>
     </div>
   </div>
 );
@@ -159,20 +162,87 @@ function App() {
     [reactFlowInstance, setNodes]
   );
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputText.trim()) return;
 
     const userMsg = { id: Date.now(), type: 'user', text: inputText };
     setMessages(prev => [...prev, userMsg]);
+    const textToSend = inputText;
     setInputText('');
 
-    setTimeout(() => {
+    setMessages(prev => [...prev, {
+      id: Date.now() + 1,
+      type: 'system',
+      text: '收到指令，正在解析 Schema...'
+    }]);
+
+    try {
+      const response = await fetch('http://localhost:8001/api/extract', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: textToSend }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      console.log('收到后端数据:', data);
+      console.log('Nodes:', data.nodes);
+      console.log('Edges:', data.edges);
+
+      // 处理节点：转换字段名并强制使用 'custom' 类型
+      const processedNodes = (data.nodes || []).map(node => ({
+        id: node.id || node.ID, // 支持小写和大写
+        type: 'custom', // 强制使用 custom 类型，忽略后端返回的类型
+        position: node.position || node.Position || { x: 0, y: 0 },
+        data: {
+          label: node.data?.label || node.Label || node.label || 'Node',
+          category: node.Category || node.category
+        }
+      }));
+
+      // 处理边：转换字段名并强制使用 'energy' 类型
+      const processedEdges = (data.edges || []).map(edge => ({
+        id: edge.id || edge.ID, // 支持小写和大写
+        source: edge.source || edge.Source, // 关键：转换 Source -> source
+        target: edge.target || edge.Target, // 关键：转换 Target -> target
+        type: 'energy', // 强制使用 energy 类型，忽略后端返回的类型
+        animated: true,
+        label: edge.label || edge.Label, // 边的标签
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+        }
+      }));
+
+      console.log('处理后的 nodes:', processedNodes);
+      console.log('处理后的 edges:', processedEdges);
+
+      setNodes(processedNodes);
+      setEdges(processedEdges);
+
+      // 自动调整视图以适应所有节点
+      setTimeout(() => {
+        fitView({ duration: 500, padding: 0.2 });
+      }, 100);
+
       setMessages(prev => [...prev, {
-        id: Date.now() + 1,
+        id: Date.now() + 2,
         type: 'system',
-        text: '收到指令，正在解析 Schema...'
+        text: `解析完成！提取了 ${processedNodes.length} 个节点，${processedEdges.length} 条边。`
       }]);
-    }, 1000);
+    } catch (error) {
+      console.error('Error extracting schema:', error);
+      setMessages(prev => [...prev, {
+        id: Date.now() + 2,
+        type: 'system',
+        text: `解析失败：${error.message}`
+      }]);
+    }
   };
 
   const handleZoomIn = () => zoomIn({ duration: 300 });
@@ -197,12 +267,14 @@ function App() {
         </div>
 
         {/* Components */}
-        <div className="flex-1 p-6 space-y-2 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
           <div className="text-xs text-white/40 font-display tracking-widest uppercase mb-4 ml-1">拖拽添加</div>
-          <SidebarButton label="Concept" icon={Box} type="custom" onDragStart={handleDragStart} />
-          <SidebarButton label="Entity" icon={Cpu} type="custom" onDragStart={handleDragStart} />
-          <SidebarButton label="Relation" icon={Share2} type="custom" onDragStart={handleDragStart} />
-          <SidebarButton label="Event" icon={CalendarDays} type="custom" onDragStart={handleDragStart} />
+          <div className="flex flex-col gap-8">
+            <SidebarButton label="Concept" icon={Box} type="custom" onDragStart={handleDragStart} />
+            <SidebarButton label="Entity" icon={Cpu} type="custom" onDragStart={handleDragStart} />
+            <SidebarButton label="Relation" icon={Share2} type="custom" onDragStart={handleDragStart} />
+            <SidebarButton label="Event" icon={CalendarDays} type="custom" onDragStart={handleDragStart} />
+          </div>
         </div>
 
         {/* Decorative elements */}
@@ -340,24 +412,27 @@ function App() {
 
         {/* Input Area */}
         <div className="p-5 border-t border-cyan-500/20 bg-slate-950/30">
-          <div className="relative">
+          <div className="flex gap-3 items-stretch">
             <textarea
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
               placeholder="输入 Schema 描述..."
-              className="w-full h-24 glass-panel rounded-xl p-4 pr-14 
-                text-sm text-white placeholder-white/30 resize-none font-body
-                focus:outline-none focus:border-cyan-400/60 focus:shadow-[0_0_20px_rgba(0,240,255,0.15)] 
+              className="flex-1 h-24 bg-white rounded-xl p-4
+                text-sm text-gray-900 placeholder-gray-400 resize-none font-body
+                border border-cyan-400/40
+                focus:outline-none focus:border-cyan-400 focus:shadow-[0_0_20px_rgba(0,240,255,0.3)]
                 transition-all"
             />
             <button
               onClick={handleSendMessage}
-              className="absolute bottom-3 right-3 p-2.5 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 
-                text-white rounded-lg transition-all shadow-lg shadow-cyan-900/30 
-                hover:shadow-[0_0_20px_rgba(0,240,255,0.5)] group"
+              className="px-8 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400
+                text-white rounded-xl transition-all shadow-lg shadow-cyan-900/30
+                hover:shadow-[0_0_20px_rgba(0,240,255,0.5)]
+                font-display text-lg font-semibold tracking-widest uppercase
+                flex items-center justify-center gap-2"
             >
-              <Send size={18} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+              发送
             </button>
           </div>
 
@@ -366,24 +441,16 @@ function App() {
             <span>SYS://READY</span>
             <span>ENCRYPTION: ENABLED</span>
           </div>
-          
-          {/* Send Button */}
-          <button
-            onClick={handleSendMessage}
-            className="w-full mt-4 py-3 bg-gradient-to-r from-cyan-600/20 via-cyan-500/20 to-purple-500/20 
-              border border-cyan-400/40 rounded-xl text-white text-sm font-display font-semibold tracking-widest uppercase
-              hover:from-cyan-600/30 hover:via-cyan-500/30 hover:to-purple-500/30 hover:border-cyan-300/60
-              hover:shadow-[0_0_25px_rgba(0,240,255,0.3)] transition-all duration-300
-              flex items-center justify-center gap-2 group relative overflow-hidden"
-          >
-            {/* Shine effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-            <span className="relative">发送</span>
-          </button>
         </div>
       </div>
     </div>
   );
 }
 
-export default App;
+const AppWrapper = () => (
+  <ReactFlowProvider>
+    <App />
+  </ReactFlowProvider>
+);
+
+export default AppWrapper;

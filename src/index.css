@@ -19,6 +19,7 @@ html, body, #root {
   background-color: var(--dark-bg);
   font-family: 'Rajdhani', 'Microsoft YaHei', sans-serif;
   overflow: hidden;
+  color: white;
 }
 
 /* Typography - Orbitron for headings */
@@ -294,6 +295,27 @@ html, body, #root {
 .react-flow__handle:hover {
   transform: scale(1.3);
   filter: brightness(1.5);
+}
+
+/* Ensure ReactFlow text is white */
+.react-flow__node {
+  color: white;
+}
+
+.react-flow__node * {
+  color: white;
+}
+
+.react-flow__node span {
+  color: white;
+}
+
+.react-flow__node p {
+  color: white;
+}
+
+.react-flow__node div {
+  color: white;
 }
 
 /* Selection styles */

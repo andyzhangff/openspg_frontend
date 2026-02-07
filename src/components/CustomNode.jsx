@@ -1,18 +1,81 @@
-import { memo } from 'react';
-import { Handle, Position } from 'reactflow';
-import { motion } from 'framer-motion';
+import { memo, useState, useEffect } from 'react';
+import { Handle, Position, useReactFlow } from 'reactflow';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Edit2, Trash2 } from 'lucide-react';
 
-const CustomNode = memo(({ data }) => {
+const CustomNode = memo(({ data, id }) => {
+  const [showMenu, setShowMenu] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editLabel, setEditLabel] = useState(data.label);
+  const { setNodes } = useReactFlow();
+
+  // 监听全局点击事件，点击菜单外部时关闭菜单
+  useEffect(() => {
+    if (showMenu) {
+      const handleClickOutside = (e) => {
+        // 如果点击的不是菜单内的元素，就关闭菜单
+        if (!e.target.closest('.context-menu')) {
+          setShowMenu(false);
+        }
+      };
+
+      // 延迟添加监听器，避免立即触发
+      setTimeout(() => {
+        document.addEventListener('click', handleClickOutside);
+      }, 0);
+
+      return () => {
+        document.removeEventListener('click', handleClickOutside);
+      };
+    }
+  }, [showMenu]);
+
+  const handleContextMenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowMenu(true);
+  };
+
+  const handleDelete = () => {
+    setNodes((nodes) => nodes.filter((node) => node.id !== id));
+    setShowMenu(false);
+  };
+
+  const handleEdit = () => {
+    setIsEditing(true);
+    setShowMenu(false);
+  };
+
+  const handleSaveEdit = () => {
+    setNodes((nodes) =>
+      nodes.map((node) =>
+        node.id === id ? { ...node, data: { ...node.data, label: editLabel } } : node
+      )
+    );
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      setEditLabel(data.label);
+      setIsEditing(false);
+    }
+  };
+
   return (
-    <motion.div
-      initial={{ scale: 0, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ 
-        duration: 0.5, 
-        ease: [0.34, 1.56, 0.64, 1] // Spring effect
-      }}
-      className="relative group"
-    >
+    <>
+      <motion.div
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{
+          duration: 0.5,
+          ease: [0.34, 1.56, 0.64, 1] // Spring effect
+        }}
+        className="relative group"
+        onContextMenu={handleContextMenu}
+      >
       {/* Outer glow layers - multiple for depth */}
       <div className="absolute -inset-10 bg-cyan-500/5 blur-3xl opacity-60 group-hover:opacity-100 transition-opacity duration-700" />
       <div className="absolute -inset-6 bg-cyan-400/10 blur-2xl opacity-70 group-hover:opacity-100 transition-opacity duration-500" />
@@ -60,11 +123,25 @@ const CustomNode = memo(({ data }) => {
         <div className="absolute right-[15%] top-1/2 -translate-y-1/2 w-4 h-[1px] bg-gradient-to-l from-cyan-400/60 to-transparent" />
 
         {/* Text content with Orbitron font */}
-        <span className="relative z-10 font-display text-white font-bold tracking-[0.25em] uppercase text-sm 
-          drop-shadow-[0_0_10px_rgba(0,240,255,0.8)] group-hover:drop-shadow-[0_0_15px_rgba(0,240,255,1)]
-          transition-all duration-300">
-          {data.label}
-        </span>
+        {isEditing ? (
+          <input
+            type="text"
+            value={editLabel}
+            onChange={(e) => setEditLabel(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={handleSaveEdit}
+            autoFocus
+            className="relative z-10 font-display text-white font-bold tracking-[0.25em] uppercase text-sm
+              bg-transparent border-none outline-none text-center w-full px-2
+              drop-shadow-[0_0_10px_rgba(0,240,255,0.8)]"
+          />
+        ) : (
+          <span className="relative z-10 font-display text-white font-bold tracking-[0.25em] uppercase text-sm
+            drop-shadow-[0_0_10px_rgba(0,240,255,0.8)] group-hover:drop-shadow-[0_0_15px_rgba(0,240,255,1)]
+            transition-all duration-300">
+            {data.label}
+          </span>
+        )}
       </div>
 
       {/* Connection handles with enhanced styling */}
@@ -101,6 +178,51 @@ const CustomNode = memo(({ data }) => {
         className="!w-2.5 !h-2.5 !bg-cyan-500/60 !border !border-cyan-400/50 !rounded-full opacity-0 group-hover:opacity-100 transition-all hover:!scale-150"
       />
     </motion.div>
+
+    {/* Context Menu */}
+    <AnimatePresence>
+      {showMenu && (
+        <>
+          {/* Menu - positioned absolutely relative to the node */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, x: -10 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            exit={{ opacity: 0, scale: 0.9, x: -10 }}
+            transition={{ duration: 0.2, ease: [0.34, 1.56, 0.64, 1] }}
+            className="absolute left-full top-0 ml-3 z-[99999] min-w-[120px] context-menu"
+          >
+            {/* Menu container */}
+            <div className="relative bg-black/0 backdrop-blur-none rounded-md overflow-hidden
+              shadow-[0_0_20px_rgba(255,255,255,0.1)]
+              border border-white/80">
+
+              <button
+                onClick={handleEdit}
+                className="relative flex items-center gap-2 px-3 py-2 w-full text-left text-white
+                  bg-transparent hover:bg-white/10 transition-all duration-200 border-b border-white/30"
+              >
+                <Edit2 className="w-3 h-3 text-white" />
+                <span className="font-display text-xs tracking-wider uppercase">
+                  编辑
+                </span>
+              </button>
+
+              <button
+                onClick={handleDelete}
+                className="relative flex items-center gap-2 px-3 py-2 w-full text-left text-white
+                  bg-transparent hover:bg-white/10 transition-all duration-200"
+              >
+                <Trash2 className="w-3 h-3 text-white" />
+                <span className="font-display text-xs tracking-wider uppercase">
+                  删除
+                </span>
+              </button>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  </>
   );
 });
 
