@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install framer-motion)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nstyle: 基于草图完成玻璃质感 UI 升级\n\n- 将全局背景色改为 Slate-950 深蓝黑色\n- 侧边栏和聊天面板应用毛玻璃效果（backdrop-blur-xl + bg-white/5）\n- CustomNode 改为鲜蓝色圆形，添加发光效果\n- 使用 Framer Motion 为节点添加缩放动画\n- 为连线添加蓝色流动光效\n- 统一使用蓝色主题色系，提升视觉一致性\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(npm run dev)",
+      "mcp__filesystem__directory_tree"
+    ]
+  }
+}

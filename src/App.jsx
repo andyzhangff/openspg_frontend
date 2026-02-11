@@ -1,13 +1,9 @@
 import { useCallback, useState, useRef } from 'react';
 import ReactFlow, {
   Background,
-  useNodesState,
-  useEdgesState,
   addEdge,
   ConnectionLineType,
-  MarkerType,
-  useReactFlow,
-  ReactFlowProvider
+  useReactFlow
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import {
@@ -15,7 +11,6 @@ import {
   Cpu,
   Share2,
   CalendarDays,
-  Send,
   Bot,
   User,
   Plus,
@@ -30,6 +25,9 @@ import {
 import CustomNode from './components/CustomNode';
 import MiniMapPanel from './components/MiniMapPanel';
 import EnergyEdge from './components/EnergyEdge';
+import SyncStatusBar from './components/SyncStatusBar';
+import SyncButton from './components/SyncButton';
+import { useSchemaStore } from './hooks/useSchemaStore';
 
 const nodeTypes = {
   custom: CustomNode,
@@ -39,21 +37,6 @@ const edgeTypes = {
   energy: EnergyEdge,
   cyberEdge: EnergyEdge,
 };
-
-const initialNodes = [
-  { id: '1', type: 'custom', position: { x: 450, y: 180 }, data: { label: 'Concept' } },
-  { id: '2', type: 'custom', position: { x: 450, y: 420 }, data: { label: 'Entity' } },
-];
-
-const initialEdges = [
-  {
-    id: 'e1-2',
-    source: '1',
-    target: '2',
-    type: 'energy',
-    animated: true,
-  },
-];
 
 const SidebarButton = ({ label, icon: Icon, onDragStart, type }) => (
   <div
@@ -97,8 +80,20 @@ const SidebarButton = ({ label, icon: Icon, onDragStart, type }) => (
 );
 
 function App() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  // 使用 Schema 数据管理 Hook
+  const {
+    nodes,
+    edges,
+    isSyncing,
+    syncErrors,
+    onNodesChange,
+    onEdgesChange,
+    setEdges,
+    addNode,
+    updateSchema,
+    syncToBackend,
+  } = useSchemaStore();
+
   const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState([
     { id: 1, type: 'system', text: '欢迎使用 Schema 编辑器！AI 助手已就绪。' }
@@ -107,6 +102,9 @@ function App() {
   const reactFlowWrapper = useRef(null);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
   const { zoomIn, zoomOut, fitView } = useReactFlow();
+
+  // CustomNode 组件现在直接使用 useSchemaStore 获取 syncErrors
+  // 不再需要在这里处理错误映射
 
   const onConnect = useCallback(
     (params) =>
@@ -157,9 +155,9 @@ function App() {
         data: { label: label || 'New Node' },
       };
 
-      setNodes((nds) => nds.concat(newNode));
+      addNode(newNode);
     },
-    [reactFlowInstance, setNodes]
+    [reactFlowInstance, addNode]
   );
 
   const handleSendMessage = async () => {
@@ -177,7 +175,7 @@ function App() {
     }]);
 
     try {
-      const response = await fetch('http://localhost:8001/api/extract', {
+      const response = await fetch('http://localhost:8000/api/extract', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -192,38 +190,11 @@ function App() {
       const data = await response.json();
 
       console.log('收到后端数据:', data);
-      console.log('Nodes:', data.nodes);
-      console.log('Edges:', data.edges);
+      console.log('Nodes:', data.data.nodes);
+      console.log('Edges:', data.data.edges);
 
-      // 处理节点：转换字段名并强制使用 'custom' 类型
-      const processedNodes = (data.nodes || []).map(node => ({
-        id: node.id || node.ID, // 支持小写和大写
-        type: 'custom', // 强制使用 custom 类型，忽略后端返回的类型
-        position: node.position || node.Position || { x: 0, y: 0 },
-        data: {
-          label: node.data?.label || node.Label || node.label || 'Node',
-          category: node.Category || node.category
-        }
-      }));
-
-      // 处理边：转换字段名并强制使用 'energy' 类型
-      const processedEdges = (data.edges || []).map(edge => ({
-        id: edge.id || edge.ID, // 支持小写和大写
-        source: edge.source || edge.Source, // 关键：转换 Source -> source
-        target: edge.target || edge.Target, // 关键：转换 Target -> target
-        type: 'energy', // 强制使用 energy 类型，忽略后端返回的类型
-        animated: true,
-        label: edge.label || edge.Label, // 边的标签
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-        }
-      }));
-
-      console.log('处理后的 nodes:', processedNodes);
-      console.log('处理后的 edges:', processedEdges);
-
-      setNodes(processedNodes);
-      setEdges(processedEdges);
+      // 使用 Hook 提供的方法更新 Schema
+      const { nodeCount, edgeCount } = updateSchema(data.data);
 
       // 自动调整视图以适应所有节点
       setTimeout(() => {
@@ -233,7 +204,7 @@ function App() {
       setMessages(prev => [...prev, {
         id: Date.now() + 2,
         type: 'system',
-        text: `解析完成！提取了 ${processedNodes.length} 个节点，${processedEdges.length} 条边。`
+        text: `解析完成！提取了 ${nodeCount} 个节点，${edgeCount} 条边。`
       }]);
     } catch (error) {
       console.error('Error extracting schema:', error);
@@ -245,12 +216,40 @@ function App() {
     }
   };
 
+  // 处理同步到后端
+  const handleSync = async () => {
+    setMessages(prev => [...prev, {
+      id: Date.now(),
+      type: 'system',
+      text: '正在同步到后端服务器...'
+    }]);
+
+    await syncToBackend();
+
+    if (syncErrors.length === 0) {
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        type: 'system',
+        text: '同步成功！Schema 已保存。'
+      }]);
+    } else {
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        type: 'system',
+        text: `同步失败：发现 ${syncErrors.length} 个验证错误，请检查标红节点。`
+      }]);
+    }
+  };
+
   const handleZoomIn = () => zoomIn({ duration: 300 });
   const handleZoomOut = () => zoomOut({ duration: 300 });
   const handleFitView = () => fitView({ duration: 300, padding: 0.2 });
 
   return (
     <div className="flex h-screen text-white overflow-hidden selection:bg-cyan-500/30 noise-overlay vignette">
+      {/* 全局同步状态条 */}
+      <SyncStatusBar isSyncing={isSyncing} />
+      
       {/* Scanline overlay */}
       <div className="fixed inset-0 pointer-events-none z-50 scanlines" />
       
@@ -307,6 +306,7 @@ function App() {
           className="bg-transparent"
           nodesDraggable={!isLocked}
           nodesConnectable={!isLocked}
+          proOptions={{ hideAttribution: true }}
         >
           <Background
             color="rgba(0, 240, 255, 0.3)"
@@ -362,6 +362,27 @@ function App() {
             <Eye className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Error Summary Badge */}
+        {syncErrors.length > 0 && (
+          <div className="absolute top-6 left-8 z-10">
+            <div className="glass-panel rounded-lg px-4 py-2 border border-orange-500/50"
+              style={{
+                boxShadow: '0 0 30px rgba(255, 100, 0, 0.3)',
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                <span className="font-display text-xs text-orange-400 tracking-wider">
+                  {syncErrors.length} 个验证错误
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Sync Button - 赛博朋克风格，右下角 */}
+        <SyncButton isSyncing={isSyncing} onClick={handleSync} />
 
         {/* Mini Map Panel */}
         <MiniMapPanel nodes={nodes} />
@@ -438,7 +459,7 @@ function App() {
 
           {/* Status bar */}
           <div className="flex justify-between items-center mt-4 text-[10px] text-white/30 font-mono tracking-wider">
-            <span>SYS://READY</span>
+            <span>SYS://{isSyncing ? 'SYNCING...' : 'READY'}</span>
             <span>ENCRYPTION: ENABLED</span>
           </div>
         </div>
@@ -447,10 +468,4 @@ function App() {
   );
 }
 
-const AppWrapper = () => (
-  <ReactFlowProvider>
-    <App />
-  </ReactFlowProvider>
-);
-
-export default AppWrapper;
+export default App;
