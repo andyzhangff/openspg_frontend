@@ -1,28 +1,27 @@
-import { memo, useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { memo, useCallback, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { RefreshCw, Zap } from 'lucide-react';
 
-/**
- * SyncButton - 赛博朋克风格同步按钮
- * 固定在画布右下角
- */
-const SyncButton = memo(({ isSyncing, onClick }) => {
+const SyncButton = memo(({ isSyncing, onClick, rightOffset = 'calc(380px + 2rem)' }) => {
   const [ripples, setRipples] = useState([]);
 
-  const handleClick = useCallback((e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    const newRipple = { id: Date.now(), x, y };
-    setRipples(prev => [...prev, newRipple]);
-    
-    setTimeout(() => {
-      setRipples(prev => prev.filter(r => r.id !== newRipple.id));
-    }, 600);
+  const handleClick = useCallback(
+    (e) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
 
-    onClick();
-  }, [onClick]);
+      const newRipple = { id: Date.now(), x, y };
+      setRipples((prev) => [...prev, newRipple]);
+
+      setTimeout(() => {
+        setRipples((prev) => prev.filter((r) => r.id !== newRipple.id));
+      }, 600);
+
+      onClick();
+    },
+    [onClick],
+  );
 
   return (
     <motion.button
@@ -32,9 +31,9 @@ const SyncButton = memo(({ isSyncing, onClick }) => {
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
-      className="fixed z-[200] group"
+      className="fixed z-[260] group"
       style={{
-        right: 'calc(380px + 2rem)',
+        right: rightOffset,
         bottom: '2rem',
         minWidth: '120px',
         padding: '16px 24px',
@@ -49,7 +48,7 @@ const SyncButton = memo(({ isSyncing, onClick }) => {
         letterSpacing: '0.15em',
         textTransform: 'uppercase',
         color: '#0f172a',
-        background: isSyncing 
+        background: isSyncing
           ? 'linear-gradient(135deg, rgba(0,240,255,0.6), rgba(0,200,255,0.4))'
           : 'linear-gradient(135deg, #00f0ff, #00c8ff, #00f0ff)',
         backgroundSize: '200% 200%',
@@ -64,9 +63,8 @@ const SyncButton = memo(({ isSyncing, onClick }) => {
         transition: 'all 0.3s ease',
       }}
     >
-      {/* 冲击波动画 */}
       <AnimatePresence>
-        {ripples.map(ripple => (
+        {ripples.map((ripple) => (
           <motion.span
             key={ripple.id}
             initial={{ width: 0, height: 0, opacity: 0.8 }}
@@ -85,27 +83,18 @@ const SyncButton = memo(({ isSyncing, onClick }) => {
         ))}
       </AnimatePresence>
 
-      {/* 图标 */}
       <motion.div
         animate={isSyncing ? { rotate: 360 } : { rotate: 0 }}
         transition={isSyncing ? { duration: 1, repeat: Infinity, ease: 'linear' } : {}}
       >
-        {isSyncing ? (
-          <RefreshCw size={18} style={{ color: '#0f172a' }} />
-        ) : (
-          <Zap size={18} style={{ color: '#0f172a' }} />
-        )}
+        {isSyncing ? <RefreshCw size={18} style={{ color: '#0f172a' }} /> : <Zap size={18} style={{ color: '#0f172a' }} />}
       </motion.div>
 
-      {/* 文字 */}
       <span>{isSyncing ? '同步中' : '同步'}</span>
 
-      {/* 悬停光晕 */}
-      <div 
+      <div
         className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10"
-        style={{
-          background: 'linear-gradient(135deg, rgba(255,255,255,0.2), transparent)',
-        }}
+        style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.2), transparent)' }}
       />
     </motion.button>
   );

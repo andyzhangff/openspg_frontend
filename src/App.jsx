@@ -1,471 +1,117 @@
-import { useCallback, useState, useRef } from 'react';
-import ReactFlow, {
-  Background,
-  addEdge,
-  ConnectionLineType,
-  useReactFlow
-} from 'reactflow';
-import 'reactflow/dist/style.css';
-import {
-  Box,
-  Cpu,
-  Share2,
-  CalendarDays,
-  Bot,
-  User,
-  Plus,
-  Minus,
-  Maximize,
-  Lock,
-  Unlock,
-  Eye,
-  Zap,
-} from 'lucide-react';
+import { useState } from 'react';
+import Login from './components/auth/Login';
+import KnowledgeBase from './components/knowledge-base/KnowledgeBase';
+import Application from './components/application/Application';
+import SchemaEditor from './components/schema-editor/SchemaEditor';
 
-import CustomNode from './components/CustomNode';
-import MiniMapPanel from './components/MiniMapPanel';
-import EnergyEdge from './components/EnergyEdge';
-import SyncStatusBar from './components/SyncStatusBar';
-import SyncButton from './components/SyncButton';
-import { useSchemaStore } from './hooks/useSchemaStore';
-
-const nodeTypes = {
-  custom: CustomNode,
-};
-
-const edgeTypes = {
-  energy: EnergyEdge,
-  cyberEdge: EnergyEdge,
-};
-
-const SidebarButton = ({ label, icon: Icon, onDragStart, type }) => (
-  <div
-    draggable
-    onDragStart={(e) => onDragStart(e, type, label)}
-    className="group relative w-full min-h-[112px] cursor-pointer"
-  >
-    {/* Animated border glow */}
-    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/20 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm" />
-
-    {/* Main container with glass effect */}
-    <div className="relative glass-panel rounded-lg group-hover:border-cyan-400/60 transition-all duration-300
-      shadow-[0_0_15px_rgba(0,240,255,0.1)] group-hover:shadow-[0_0_25px_rgba(0,240,255,0.3)] overflow-hidden
-      min-h-[112px]">
-
-      {/* Corner accents */}
-      <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-cyan-400/70 rounded-tl-lg" />
-      <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-cyan-400/70 rounded-tr-lg" />
-      <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-cyan-400/70 rounded-bl-lg" />
-      <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-cyan-400/70 rounded-br-lg" />
-
-      {/* Scanline animation */}
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-400/10 to-transparent h-full w-full animate-[shine_2s_ease-in-out_infinite]" />
-      </div>
-
-      {/* Content */}
-      <div className="relative flex flex-col items-center justify-center gap-2 py-6">
-        <div className="relative p-3 rounded-xl bg-slate-900/60 border border-cyan-500/30
-          group-hover:border-cyan-400/60 group-hover:bg-cyan-950/40
-          group-hover:shadow-[0_0_20px_rgba(0,240,255,0.4)] transition-all duration-300
-          group-hover:scale-110">
-          <Icon className="w-7 h-7 text-cyan-300 group-hover:text-cyan-200 transition-colors" />
-        </div>
-        <span className="font-display text-white/90 text-sm tracking-[0.2em] uppercase group-hover:text-white transition-colors font-semibold">
-          {label}
-        </span>
-      </div>
-    </div>
-  </div>
-);
-
+/**
+ * App - 应用入口组件
+ * 管理登录状态和页面路由
+ * 流程: 登录页 -> 知识库首页/应用页 -> Schema编辑器
+ */
 function App() {
-  // 使用 Schema 数据管理 Hook
-  const {
-    nodes,
-    edges,
-    isSyncing,
-    syncErrors,
-    onNodesChange,
-    onEdgesChange,
-    setEdges,
-    addNode,
-    updateSchema,
-    syncToBackend,
-  } = useSchemaStore();
+  // 登录状态
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // 当前页面状态: 'knowledge-base' | 'application' | 'schema-editor'
+  const [currentPage, setCurrentPage] = useState('knowledge-base');
+  // 用户信息
+  const [userName, setUserName] = useState('openspg');
 
-  const [inputText, setInputText] = useState('');
-  const [messages, setMessages] = useState([
-    { id: 1, type: 'system', text: '欢迎使用 Schema 编辑器！AI 助手已就绪。' }
-  ]);
-  const [isLocked, setIsLocked] = useState(false);
-  const reactFlowWrapper = useRef(null);
-  const [reactFlowInstance, setReactFlowInstance] = useState(null);
-  const { zoomIn, zoomOut, fitView } = useReactFlow();
-
-  // CustomNode 组件现在直接使用 useSchemaStore 获取 syncErrors
-  // 不再需要在这里处理错误映射
-
-  const onConnect = useCallback(
-    (params) =>
-      setEdges((eds) =>
-        addEdge(
-          {
-            ...params,
-            type: 'energy',
-            animated: true,
-          },
-          eds
-        )
-      ),
-    [setEdges]
-  );
-
-  const handleDragStart = (e, nodeType, label) => {
-    e.dataTransfer.setData('application/reactflow', nodeType);
-    e.dataTransfer.setData('application/reactflow-label', label);
-    e.dataTransfer.effectAllowed = 'move';
+  // 处理登录成功
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+    setCurrentPage('knowledge-base');
   };
 
-  const onDragOver = useCallback((event) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-  }, []);
-
-  const onDrop = useCallback(
-    (event) => {
-      event.preventDefault();
-
-      const type = event.dataTransfer.getData('application/reactflow');
-      const label = event.dataTransfer.getData('application/reactflow-label');
-
-      if (typeof type === 'undefined' || !type) {
-        return;
-      }
-
-      const position = reactFlowInstance.screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY,
-      });
-
-      const newNode = {
-        id: `${type}-${Date.now()}`,
-        type,
-        position,
-        data: { label: label || 'New Node' },
-      };
-
-      addNode(newNode);
-    },
-    [reactFlowInstance, addNode]
-  );
-
-  const handleSendMessage = async () => {
-    if (!inputText.trim()) return;
-
-    const userMsg = { id: Date.now(), type: 'user', text: inputText };
-    setMessages(prev => [...prev, userMsg]);
-    const textToSend = inputText;
-    setInputText('');
-
-    setMessages(prev => [...prev, {
-      id: Date.now() + 1,
-      type: 'system',
-      text: '收到指令，正在解析 Schema...'
-    }]);
-
-    try {
-      const response = await fetch('http://localhost:8000/api/extract', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: textToSend }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      console.log('收到后端数据:', data);
-      console.log('Nodes:', data.data.nodes);
-      console.log('Edges:', data.data.edges);
-
-      // 使用 Hook 提供的方法更新 Schema
-      const { nodeCount, edgeCount } = updateSchema(data.data);
-
-      // 自动调整视图以适应所有节点
-      setTimeout(() => {
-        fitView({ duration: 500, padding: 0.2 });
-      }, 100);
-
-      setMessages(prev => [...prev, {
-        id: Date.now() + 2,
-        type: 'system',
-        text: `解析完成！提取了 ${nodeCount} 个节点，${edgeCount} 条边。`
-      }]);
-    } catch (error) {
-      console.error('Error extracting schema:', error);
-      setMessages(prev => [...prev, {
-        id: Date.now() + 2,
-        type: 'system',
-        text: `解析失败：${error.message}`
-      }]);
-    }
+  // 处理退出登录
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setCurrentPage('knowledge-base');
   };
 
-  // 处理同步到后端
-  const handleSync = async () => {
-    setMessages(prev => [...prev, {
-      id: Date.now(),
-      type: 'system',
-      text: '正在同步到后端服务器...'
-    }]);
-
-    await syncToBackend();
-
-    if (syncErrors.length === 0) {
-      setMessages(prev => [...prev, {
-        id: Date.now(),
-        type: 'system',
-        text: '同步成功！Schema 已保存。'
-      }]);
-    } else {
-      setMessages(prev => [...prev, {
-        id: Date.now(),
-        type: 'system',
-        text: `同步失败：发现 ${syncErrors.length} 个验证错误，请检查标红节点。`
-      }]);
-    }
+  // 导航到知识库
+  const handleNavigateToKnowledgeBase = () => {
+    setCurrentPage('knowledge-base');
   };
 
-  const handleZoomIn = () => zoomIn({ duration: 300 });
-  const handleZoomOut = () => zoomOut({ duration: 300 });
-  const handleFitView = () => fitView({ duration: 300, padding: 0.2 });
+  // 导航到应用页
+  const handleNavigateToApplication = () => {
+    setCurrentPage('application');
+  };
 
-  return (
-    <div className="flex h-screen text-white overflow-hidden selection:bg-cyan-500/30 noise-overlay vignette">
-      {/* 全局同步状态条 */}
-      <SyncStatusBar isSyncing={isSyncing} />
-      
-      {/* Scanline overlay */}
-      <div className="fixed inset-0 pointer-events-none z-50 scanlines" />
-      
-      {/* Left Sidebar */}
-      <div className="w-[260px] glass-panel border-r border-cyan-500/30 flex flex-col relative z-20 
-        shadow-[5px_0_40px_rgba(0,0,0,0.5)]">
-        {/* Header with gradient */}
-        <div className="h-16 flex items-center px-6 border-b border-cyan-500/30 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-transparent" />
-          <Zap className="w-5 h-5 text-cyan-400 mr-3" />
-          <h2 className="font-display text-lg font-bold text-white tracking-widest uppercase">
-            Schema<span className="text-cyan-400">.</span>组件
-          </h2>
-        </div>
+  // 进入 Schema 编辑器
+  const handleEnterSchema = () => {
+    setCurrentPage('schema-editor');
+  };
 
-        {/* Components */}
-        <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
-          <div className="text-xs text-white/40 font-display tracking-widest uppercase mb-4 ml-1">拖拽添加</div>
-          <div className="flex flex-col gap-8">
-            <SidebarButton label="Concept" icon={Box} type="custom" onDragStart={handleDragStart} />
-            <SidebarButton label="Entity" icon={Cpu} type="custom" onDragStart={handleDragStart} />
-            <SidebarButton label="Relation" icon={Share2} type="custom" onDragStart={handleDragStart} />
-            <SidebarButton label="Event" icon={CalendarDays} type="custom" onDragStart={handleDragStart} />
-          </div>
-        </div>
+  // 创建新应用
+  const handleCreateApp = () => {
+    // 创建应用后进入 Schema 编辑器
+    setCurrentPage('schema-editor');
+  };
 
-        {/* Decorative elements */}
-        <div className="absolute left-0 bottom-32 w-1 h-48 bg-gradient-to-b from-cyan-500/0 via-cyan-500/60 to-cyan-500/0" />
-        <div className="absolute right-0 top-32 w-1 h-48 bg-gradient-to-t from-purple-500/0 via-purple-500/60 to-purple-500/0" />
-        
-        {/* Version info */}
-        <div className="p-4 border-t border-cyan-500/20">
-          <div className="text-[10px] text-white/30 font-mono text-center tracking-widest">
-            V 2.0.1 // SYSTEM READY
-          </div>
-        </div>
-      </div>
+  // 进入已有应用
+  const handleEnterApp = (appId) => {
+    console.log('进入应用:', appId);
+    setCurrentPage('schema-editor');
+  };
 
-      {/* Main Canvas Area */}
-      <div className="flex-1 relative perspective-grid" ref={reactFlowWrapper}>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onInit={setReactFlowInstance}
-          onDrop={onDrop}
-          onDragOver={onDragOver}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          connectionLineType={ConnectionLineType.SmoothStep}
-          fitView
-          className="bg-transparent"
-          nodesDraggable={!isLocked}
-          nodesConnectable={!isLocked}
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background
-            color="rgba(0, 240, 255, 0.3)"
-            variant="dots"
-            gap={40}
-            size={2}
-            style={{ 
-              opacity: 0.2,
-            }}
-          />
-        </ReactFlow>
+  // 如果未登录，显示登录页面
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
 
-        {/* Bottom Toolbar */}
-        <div className="absolute bottom-8 left-8 flex items-center gap-4 z-10">
-          {/* Zoom Controls */}
-          <div className="flex items-center glass-panel rounded-xl overflow-hidden
-            shadow-[0_0_30px_rgba(0,0,0,0.5)]">
-            <button onClick={handleZoomIn} className="p-3 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 transition-all hover:shadow-[0_0_15px_rgba(0,240,255,0.3)]">
-              <Plus className="w-5 h-5" />
-            </button>
-            <div className="w-px h-6 bg-cyan-500/30" />
-            <button onClick={handleZoomOut} className="p-3 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 transition-all hover:shadow-[0_0_15px_rgba(0,240,255,0.3)]">
-              <Minus className="w-5 h-5" />
-            </button>
-          </div>
+  // 根据当前页面状态渲染对应组件
+  switch (currentPage) {
+    case 'knowledge-base':
+      return (
+        <KnowledgeBase
+          userName={userName}
+          onLogout={handleLogout}
+          onEnterSchema={handleEnterSchema}
+          onNavigateToApplication={handleNavigateToApplication}
+        />
+      );
 
-          {/* Fit View */}
-          <button 
-            onClick={handleFitView}
-            className="p-3 glass-panel rounded-xl hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 transition-all
-              shadow-[0_0_30px_rgba(0,0,0,0.5)] hover:shadow-[0_0_20px_rgba(0,240,255,0.3)]"
+    case 'application':
+      return (
+        <Application
+          userName={userName}
+          onLogout={handleLogout}
+          onNavigateToKnowledgeBase={handleNavigateToKnowledgeBase}
+          onCreateApp={handleCreateApp}
+          onEnterApp={handleEnterApp}
+        />
+      );
+
+    case 'schema-editor':
+      return (
+        <div className="relative">
+          {/* 返回按钮 */}
+          <button
+            onClick={handleNavigateToKnowledgeBase}
+            className="fixed top-4 left-4 z-[60] px-4 py-2 rounded-lg
+              bg-slate-900/80 backdrop-blur-xl border border-cyan-500/30
+              text-cyan-400 text-sm font-medium
+              hover:bg-cyan-950/50 hover:border-cyan-400/50
+              transition-all duration-200 shadow-[0_0_20px_rgba(0,240,255,0.1)]"
           >
-            <Maximize className="w-5 h-5" />
+            ← 返回知识库
           </button>
-
-          {/* Lock/Unlock */}
-          <button 
-            onClick={() => setIsLocked(!isLocked)}
-            className={`p-3 rounded-xl transition-all shadow-[0_0_30px_rgba(0,0,0,0.5)]
-              ${isLocked 
-                ? 'bg-cyan-500/30 border border-cyan-400/60 text-cyan-300 shadow-[0_0_20px_rgba(0,240,255,0.3)]' 
-                : 'glass-panel border border-cyan-500/30 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/20 hover:shadow-[0_0_20px_rgba(0,240,255,0.3)]'
-              }`}
-          >
-            {isLocked ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
-          </button>
-
-          {/* View toggle */}
-          <button 
-            className="p-3 glass-panel rounded-xl hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 transition-all
-              shadow-[0_0_30px_rgba(0,0,0,0.5)] hover:shadow-[0_0_20px_rgba(0,240,255,0.3)]"
-          >
-            <Eye className="w-5 h-5" />
-          </button>
+          <SchemaEditor />
         </div>
+      );
 
-        {/* Error Summary Badge */}
-        {syncErrors.length > 0 && (
-          <div className="absolute top-6 left-8 z-10">
-            <div className="glass-panel rounded-lg px-4 py-2 border border-orange-500/50"
-              style={{
-                boxShadow: '0 0 30px rgba(255, 100, 0, 0.3)',
-              }}
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-                <span className="font-display text-xs text-orange-400 tracking-wider">
-                  {syncErrors.length} 个验证错误
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Sync Button - 赛博朋克风格，右下角 */}
-        <SyncButton isSyncing={isSyncing} onClick={handleSync} />
-
-        {/* Mini Map Panel */}
-        <MiniMapPanel nodes={nodes} />
-      </div>
-
-      {/* Right Sidebar - Chat Box */}
-      <div className="w-[380px] glass-panel border-l border-cyan-500/30 flex flex-col relative z-20 
-        shadow-[-5px_0_40px_rgba(0,0,0,0.5)]">
-        {/* Header */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-cyan-500/30 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-l from-purple-500/10 via-cyan-500/10 to-transparent" />
-          <div className="flex items-center gap-3">
-            <Bot className="w-5 h-5 text-cyan-400" />
-            <h2 className="font-display text-lg font-bold text-white tracking-widest uppercase">
-              Chat<span className="text-cyan-400">.</span>Box
-            </h2>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_#00f0ff]" />
-            <span className="text-[10px] text-white/50 font-mono">ONLINE</span>
-          </div>
-        </div>
-
-        {/* Messages */}
-        <div className="flex-1 p-5 overflow-y-auto space-y-4 custom-scrollbar">
-          {messages.map((msg, index) => (
-            <div 
-              key={msg.id} 
-              className={`flex gap-3 animate-[float_0.5s_ease-out] ${msg.type === 'user' ? 'flex-row-reverse' : ''}`}
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border 
-                ${msg.type === 'user' 
-                  ? 'bg-gradient-to-br from-cyan-600/30 to-purple-600/30 border-cyan-400/50 shadow-[0_0_15px_rgba(0,240,255,0.2)]' 
-                  : 'glass-panel border-cyan-500/30'}`}>
-                {msg.type === 'user' ? <User size={16} className="text-white" /> : <Bot size={16} className="text-white" />}
-              </div>
-
-              <div className={`p-4 rounded-xl max-w-[78%] text-sm leading-relaxed border font-body
-                ${msg.type === 'user'
-                  ? 'bg-gradient-to-br from-cyan-900/30 to-purple-900/20 border-cyan-400/40 text-white rounded-tr-none'
-                  : 'glass-panel border-cyan-500/20 text-white/95 rounded-tl-none'}`}>
-                {msg.text}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Input Area */}
-        <div className="p-5 border-t border-cyan-500/20 bg-slate-950/30">
-          <div className="flex gap-3 items-stretch">
-            <textarea
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
-              placeholder="输入 Schema 描述..."
-              className="flex-1 h-24 bg-white rounded-xl p-4
-                text-sm text-gray-900 placeholder-gray-400 resize-none font-body
-                border border-cyan-400/40
-                focus:outline-none focus:border-cyan-400 focus:shadow-[0_0_20px_rgba(0,240,255,0.3)]
-                transition-all"
-            />
-            <button
-              onClick={handleSendMessage}
-              className="px-8 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400
-                text-white rounded-xl transition-all shadow-lg shadow-cyan-900/30
-                hover:shadow-[0_0_20px_rgba(0,240,255,0.5)]
-                font-display text-lg font-semibold tracking-widest uppercase
-                flex items-center justify-center gap-2"
-            >
-              发送
-            </button>
-          </div>
-
-          {/* Status bar */}
-          <div className="flex justify-between items-center mt-4 text-[10px] text-white/30 font-mono tracking-wider">
-            <span>SYS://{isSyncing ? 'SYNCING...' : 'READY'}</span>
-            <span>ENCRYPTION: ENABLED</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    default:
+      return (
+        <KnowledgeBase
+          userName={userName}
+          onLogout={handleLogout}
+          onEnterSchema={handleEnterSchema}
+          onNavigateToApplication={handleNavigateToApplication}
+        />
+      );
+  }
 }
 
 export default App;
